@@ -1,0 +1,86 @@
+# Reusable CodeQL Advanced analysis for bendoerr-terraform-modules/*.
+# Consolidates the per-repo codeql.yml of the ADVANCED-setup repos (tfstate, defaults, cf-and-s3,
+# tfuser). Repos on CodeQL DEFAULT setup (GitHub-managed, no workflow file) do not use this.
+#
+# GATE-DEFINER: the org's only required status gate is the `code_scanning` ruleset rule, which keys on
+# the SARIF *tool name* (`CodeQL`) that github/codeql-action/analyze uploads — NOT a check-run name.
+# So this reusable satisfies the gate as long as analyze runs and uploads under tool `CodeQL`. Because
+# it gates merges, CALLERS SHA-PIN this workflow (not @v1) per the graduated pin lane.
+#
+# CALLER REQUIREMENT (perms are caller-capped): the caller job MUST grant `security-events: write`
+# (plus packages/actions/contents: read). Without it the SARIF upload 403s, no results post, and the
+# `code_scanning` gate never resolves. Triggers (push/pull_request/schedule) stay in the caller.
+name: CodeQL Advanced
+
+on:
+  workflow_call:
+    inputs:
+      languages:
+        description: "JSON array of {language, build-mode} include-entries for the CodeQL matrix."
+        type: string
+        default: |
+          [
+            {"language": "actions", "build-mode": "none"},
+            {"language": "go", "build-mode": "autobuild"}
+          ]
+      go-version-file:
+        description: "go.mod path for setup-go (used only for the 'go' language)."
+        type: string
+        default: "test/go.mod"
+      allowed-endpoints:
+        description: "harden-runner egress allowlist (newline- or space-separated host:port)."
+        type: string
+        default: |
+          api.github.com:443
+          cdn.fwupd.org:443
+          github.com:443
+          hosted-compute-watchdog-prod-eus-01.githubapp.com:443
+          objects.githubusercontent.com:443
+          packages.microsoft.com:443
+          proxy.golang.org:443
+          storage.googleapis.com:443
+          uploads.github.com:443
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.languages) }}
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ inputs.allowed-endpoints }}
+
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - if: matrix.language == 'go'
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3.29.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v3.29.5
+        with:
+          category: "/language:${{matrix.language}}"
