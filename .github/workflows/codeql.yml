@@ -1,6 +1,7 @@
 # Reusable CodeQL Advanced analysis for bendoerr-terraform-modules/*.
 # Consolidates the per-repo codeql.yml of the ADVANCED-setup repos (tfstate, defaults, cf-and-s3,
-# tfuser). Repos on CodeQL DEFAULT setup (GitHub-managed, no workflow file) do not use this.
+# tfuser, null-context, null-label). Repos on CodeQL DEFAULT setup (GitHub-managed, no workflow file)
+# do not use this.
 #
 # GATE-DEFINER: the org's only required status gate is the `code_scanning` ruleset rule, which keys on
 # the SARIF *tool name* (`CodeQL`) that github/codeql-action/analyze uploads — NOT a check-run name.
@@ -28,9 +29,13 @@ on:
         type: string
         default: "test/go.mod"
       allowed-endpoints:
-        description: "harden-runner egress allowlist (newline- or space-separated host:port)."
+        # MUST be SPACE-separated. harden-runner splits allowed-endpoints on spaces, NOT newlines — a
+        # newline-joined list collapses to a single mangled token and only the first endpoint (at a
+        # broken port) is enforced, blocking github.com -> checkout fails -> no SARIF -> gate never
+        # resolves. Use a FOLDED (>) scalar, never a literal (|). Verified: tfstate#216, 2026-06-30.
+        description: "harden-runner egress allowlist — SPACE-separated host:port (use a folded > scalar)."
         type: string
-        default: |
+        default: >
           api.github.com:443
           cdn.fwupd.org:443
           github.com:443
