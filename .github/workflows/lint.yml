@@ -76,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.tflint }}
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -99,6 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.trivy }}
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -121,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.golangci }}
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -142,6 +145,7 @@ jobs:
   prettier:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -167,6 +171,7 @@ jobs:
   misspell:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -189,6 +194,7 @@ jobs:
   alex:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -210,6 +216,7 @@ jobs:
   markdownlint:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
@@ -230,6 +237,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Harden Runner
