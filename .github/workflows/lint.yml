@@ -37,6 +37,14 @@ on:
         description: "Flags for markdownlint."
         type: string
         default: "--disable MD033 MD013 -- ."
+      golangci_workdir:
+        description: "golangci-lint workdir. Default test/ (terratest layout); pass empty/root for Go-tool repos whose module is at the repo root."
+        type: string
+        default: "test/"
+      golangci_go_version_file:
+        description: "go.mod path for the golangci-lint job's setup-go."
+        type: string
+        default: "test/go.mod"
       allowed-endpoints:
         description: "harden-runner egress allowlist - SPACE-separated host:port (folded > scalar)."
         type: string
@@ -129,8 +137,8 @@ jobs:
           reporter: github-pr-review
           fail_level: error
           filter_mode: file
-          workdir: test/
-          go_version_file: test/go.mod
+          workdir: ${{ inputs.golangci_workdir }}
+          go_version_file: ${{ inputs.golangci_go_version_file }}
   prettier:
     runs-on: ubuntu-latest
     permissions:
