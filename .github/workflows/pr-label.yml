@@ -1,0 +1,26 @@
+# Reusable PR labeler for bendoerr-terraform-modules/*.
+# Body is identical to the per-repo copies; only the trigger changed: `on: pull_request` -> `on: workflow_call`.
+# actions/labeler reads `.github/labeler.yml` from the CALLER repo (github.repository resolves to the
+# caller in a reusable workflow), so each repo's own label rules are preserved untouched.
+name: Label Pull Request
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 #v6.1.0
