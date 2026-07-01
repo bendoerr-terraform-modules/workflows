@@ -12,14 +12,18 @@ name: Scorecard supply-chain security
 on:
   workflow_call:
 
-# Declare default permissions as read only.
-permissions: read-all
+# Declare default permissions as read only. (contents:read, not read-all: a reusable's
+# perms are caller-capped, and read-all exceeds what the thin caller grants -> startup_failure.)
+permissions:
+  contents: read
 
 jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
+      # Needed for actions/checkout + scorecard repo reads.
+      contents: read
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
