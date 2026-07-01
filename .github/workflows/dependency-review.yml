@@ -1,0 +1,56 @@
+# Reusable Dependency Review for bendoerr-terraform-modules/*.
+# Body is the richest per-repo shape (lambda/apigateway/template); only the trigger
+# changed: standalone `on: [pull_request]` -> `on: workflow_call`. Two knobs parameterize
+# the drift the 5 per-repo versions had:
+#   - comment_summary: toggles `comment-summary-in-pr` (always vs never). Behavior-preserving
+#     per caller (the 3 that posted PR summaries pass true; the 9 that didn't pass false).
+#   - allowed-endpoints: harden-runner egress (SPACE-separated, folded `>`). Default is the
+#     canonical SUPERSET incl api.deps.dev:443 — the repos that lacked it just gain an allowed
+#     endpoint (behavior-preserving; the "latent-5 adopt canonical egress" cleanup).
+# CALLER REQUIREMENT (caller-capped): the caller job MUST grant `contents: read` +
+# `pull-requests: write` or the reusable 403s/startup-fails. pull-requests:write is unused when
+# comment_summary=false (dependency-review is PR-scoped; a benign over-grant, not a behavior change).
+#
+# This Action scans dependency manifest files that change in a PR, surfacing known-vulnerable
+# versions. Source: https://github.com/actions/dependency-review-action
+
+name: "Dependency Review"
+
+on:
+  workflow_call:
+    inputs:
+      comment_summary:
+        description: "Post the dependency-review summary as a PR comment (comment-summary-in-pr: always vs never)."
+        type: boolean
+        default: true
+      allowed-endpoints:
+        description: "harden-runner egress allowlist - SPACE-separated host:port (folded > scalar)."
+        type: string
+        default: >
+          api.deps.dev:443
+          api.github.com:443
+          api.securityscorecards.dev:443
+          github.com:443
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ inputs.allowed-endpoints }}
+
+      - name: "Checkout Repository"
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: "Dependency Review"
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          comment-summary-in-pr: ${{ inputs.comment_summary && 'always' || 'never' }}
