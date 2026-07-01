@@ -96,6 +96,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: tflint
         uses: step-security/action-tflint@285fe25934512644274b253b424a5d4b8f1c2dc5 # v1.25.0
         with:
@@ -120,6 +123,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: trivy
         uses: reviewdog/action-trivy@a1e6d7dd5520369c076d7ce639a16442938535d8 # v1.14.0
         with:
@@ -145,6 +151,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: golangci-lint
         uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
         with:
@@ -178,6 +187,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: golangci-lint
         uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
         with:
@@ -200,6 +212,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: create package.json
         # Pinned exact (not a floating ^range): a prettier minor bump must not
         # silently reformat the tree out from under contributors. Markdown is
@@ -226,6 +241,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: misspell
         uses: step-security/action-misspell@85d31a4bcbf1c3d99e4f224c148330e45b5a63cf # v1.27.2
         with:
@@ -233,6 +251,10 @@ jobs:
           reporter: github-pr-review
           fail_level: none
           filter_mode: file
+          # golangci-lint linter names read as typos to misspell: importas -> "imports".
+          # It's a real linter in the strict .golangci.yml preset; ignore it so PRs that
+          # add/edit a .golangci.yml don't get false-positive threads (recurs org-wide).
+          ignore: importas
           exclude: |
             ./.git/*
             ./.cache/*
@@ -249,6 +271,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: alex
         uses: reviewdog/action-alex@b6673b547eeb6d430c87ef02dc3524bdf34e324d # v1.16.1
         with:
@@ -271,6 +296,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: markdownlint
         uses: step-security/action-markdownlint@7eff996c965b6b4a8575f7971d970fc40479c321 # v0.26.9
         with:
@@ -292,6 +320,9 @@ jobs:
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
+          persist-credentials: false
       - name: actionlint
         uses: step-security/action-actionlint@c3aa382d371c6b05513ae5907d4f77713e21813c # v1.72.0
         with:
