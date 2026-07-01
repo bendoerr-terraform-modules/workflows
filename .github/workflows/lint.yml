@@ -45,6 +45,16 @@ on:
         description: "go.mod path for the golangci-lint job's setup-go."
         type: string
         default: "test/go.mod"
+      golangci_workdirs:
+        description: >
+          Multi-module golangci-lint: a JSON array of workdirs (e.g.
+          '["modules/a/test","modules/b/test"]'). When set (non-empty), the
+          single-dir golangci-lint job is skipped and a matrix job runs
+          golangci-lint once per workdir, with go_version_file derived as
+          <workdir>/go.mod. Default "" keeps the single-dir job (golangci_workdir
+          / golangci_go_version_file) unchanged for the common one-module layout.
+        type: string
+        default: ""
       allowed-endpoints:
         description: "harden-runner egress allowlist - SPACE-separated host:port (folded > scalar)."
         type: string
@@ -119,9 +129,11 @@ jobs:
           reporter: github-pr-review
           fail_level: error
           filter_mode: file
+  # Single-module golangci-lint (the common layout). Skipped when golangci_workdirs
+  # is set — then golangci-lint-matrix below runs one job per module instead.
   golangci-lint:
     runs-on: ubuntu-latest
-    if: ${{ inputs.golangci }}
+    if: ${{ inputs.golangci && inputs.golangci_workdirs == '' }}
     permissions:
       contents: read
       pull-requests: write
@@ -142,6 +154,39 @@ jobs:
           filter_mode: file
           workdir: ${{ inputs.golangci_workdir }}
           go_version_file: ${{ inputs.golangci_go_version_file }}
+
+  # Multi-module golangci-lint: one job per workdir in golangci_workdirs (JSON array).
+  # Only runs when golangci_workdirs is non-empty; go_version_file is derived per
+  # workdir as <workdir>/go.mod. fail-fast off so every module's findings surface in
+  # one run (not truncated at the first failing module). Steps mirror golangci-lint
+  # above so behavior is identical per-module.
+  golangci-lint-matrix:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.golangci && inputs.golangci_workdirs != '' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        workdir: ${{ fromJSON(inputs.golangci_workdirs) }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ inputs.allowed-endpoints }}
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: golangci-lint
+        uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-pr-review
+          fail_level: error
+          filter_mode: file
+          workdir: ${{ matrix.workdir }}
+          go_version_file: ${{ matrix.workdir }}/go.mod
   prettier:
     runs-on: ubuntu-latest
     permissions:
