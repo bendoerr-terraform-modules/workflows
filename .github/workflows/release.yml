@@ -1,0 +1,46 @@
+# Reusable release publisher for bendoerr-terraform-modules/*.
+# Body consolidates the per-repo release.yml (~6 drifted variants); only the trigger changed:
+# standalone `on: push: tags: v*.*.*` -> `on: workflow_call` (the tag trigger lives in each caller).
+# Standardization decisions (uses: can't be parameterized, so these are unavoidably canonical):
+#   - gh-release: step-security/action-gh-release (hardened fork, the 7-repo majority + org direction).
+#     Drop-in for softprops/action-gh-release — same release output; the 5 softprops repos adopt it.
+#   - perms: contents:write (create release) + pull-requests:write (changelog fetchReviewers). Dropped
+#     `deployments: write` — unused (release creates no deployment); the 3 repos that had it over-granted.
+#   - checkout pinned v6.0.3 (tflint's v7 folds back to canonical).
+# The changelog-builder reads `.github/changelog.json` from the CALLER repo (caller context).
+# CALLER REQUIREMENT (caller-capped): caller job MUST grant contents:write + pull-requests:write.
+
+name: Publish release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: mikepenz/release-changelog-builder-action@348e88fab4c37338b1e803ceb2d4a7a5db6c0833 # v5.0.0
+        id: build_changelog
+        with:
+          configuration: .github/changelog.json
+          failOnError: "true"
+          fetchReviewers: "true"
+
+      - uses: step-security/action-gh-release@277bfa82abcfdb73e5bbb19e213fd76532ee2be5 # v3.0.0
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: ${{steps.build_changelog.outputs.changelog}}
