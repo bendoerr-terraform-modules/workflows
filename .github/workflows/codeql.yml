@@ -73,6 +73,10 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # CodeQL reads the tree + uploads SARIF via the Actions token (env), never a persisted
+          # git credential, and it doesn't push — so drop the token from .git/config (zizmor artipacked).
+          persist-credentials: false
 
       - if: matrix.language == 'go'
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
