@@ -1,0 +1,75 @@
+# Reusable Infracost cost-estimate for bendoerr-terraform-modules/*.
+# Body is the canonical per-repo shape (lambda/apigateway/cf-s3/jwt-authz); only the trigger changed:
+# standalone `on: pull_request` -> `on: workflow_call` (the PR trigger lives in each caller). template
+# gains the harden-runner step it lacked (hardening). fargate is intentionally OUT of this reusable:
+# its infracost carries a step-security/ssh-agent step (ORG_ACCESS_SSH_KEY for private module deps) +
+# a newer setup SHA + a .infracost.yml config path — an n=1 divergence not worth parameterizing.
+#
+# SECRET: caller passes `secrets: inherit` (forwards INFRACOST_API_KEY). CALLER also grants
+# contents:read + pull-requests:write (caller-capped) so the cost comment can post.
+
+name: Infracost
+
+on:
+  workflow_call:
+    secrets:
+      INFRACOST_API_KEY:
+        description: "Infracost API key (https://dashboard.infracost.io)."
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            dashboard.api.infracost.io:443
+            github.com:443
+            pricing.api.infracost.io:443
+            registry.terraform.io:443
+            release-assets.githubusercontent.com:443
+
+      - uses: infracost/actions/setup@d51fc54d23c9ad90f984b884257bd96dc2625067 # v4.1.0
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      # Checkout the base branch of the pull request (e.g. main/master).
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - run: |
+          infracost breakdown --config-file=infracost.yml \
+                              --format=json \
+                              --out-file=/tmp/infracost-base.json
+
+      # Checkout the current PR branch so we can create a diff.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # Generate an Infracost diff and save it to a JSON file.
+      - run: |
+          infracost diff  --config-file=infracost.yml \
+                          --format=json \
+                          --compare-to=/tmp/infracost-base.json \
+                          --out-file=/tmp/infracost.json
+
+      # Posts a single cost comment to the PR and updates it (the quietest behavior).
+      - run: |
+          infracost comment github --path=/tmp/infracost.json \
+                                   --repo="${GITHUB_REPOSITORY}" \
+                                   --github-token=${{github.token}} \
+                                   --pull-request=${{github.event.pull_request.number}} \
+                                   --behavior=update \
+                                   --show-skipped
