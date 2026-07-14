@@ -78,6 +78,7 @@ on:
           registry.npmjs.org:443
           release-assets.githubusercontent.com:443
           releases.hashicorp.com:443
+          sum.golang.org:443
           tuf-repo-cdn.sigstore.dev:443
 
 permissions:
