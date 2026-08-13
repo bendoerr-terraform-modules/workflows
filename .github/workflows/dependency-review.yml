@@ -3,7 +3,8 @@
 # changed: standalone `on: [pull_request]` -> `on: workflow_call`. Two knobs parameterize
 # the drift the 5 per-repo versions had:
 #   - comment_summary: toggles `comment-summary-in-pr` (always vs never). Behavior-preserving
-#     per caller (the 3 that posted PR summaries pass true; the 9 that didn't pass false).
+#     per caller (the 4 that posted PR summaries pass true; the 8 that didn't pass false —
+#     errata 2026-08-13: the day-zero ledger miscounted tflint-plugin-version-update as false).
 #   - allowed-endpoints: harden-runner egress (SPACE-separated, folded `>`). Default is the
 #     canonical SUPERSET incl api.deps.dev:443 — the repos that lacked it just gain an allowed
 #     endpoint (behavior-preserving; the "latent-5 adopt canonical egress" cleanup).
