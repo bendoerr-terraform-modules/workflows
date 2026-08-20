@@ -55,6 +55,16 @@ on:
           / golangci_go_version_file) unchanged for the common one-module layout.
         type: string
         default: ""
+      golangci_lint_version:
+        description: >
+          golangci-lint version passed to action-golangci-lint. PINNED on purpose:
+          unpinned "latest" let v2.13.0 change lint standards under a green tree
+          mid-PR (fargate-on-demand#555, 2026-08-20) and its analysis cache is not
+          keyed by linter version. Default is the last version the org fleet was
+          uniformly green under. REVIEW BY 2026-11-20 or when upgrading
+          deliberately - a pin nobody revisits is the drift it prevents.
+        type: string
+        default: "v2.12.2"
       allowed-endpoints:
         description: "harden-runner egress allowlist - SPACE-separated host:port (folded > scalar)."
         type: string
@@ -78,6 +88,7 @@ on:
           registry.npmjs.org:443
           release-assets.githubusercontent.com:443
           releases.hashicorp.com:443
+          storage.googleapis.com:443
           sum.golang.org:443
           tuf-repo-cdn.sigstore.dev:443
 
@@ -161,6 +172,7 @@ jobs:
         uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
         with:
           github_token: ${{ github.token }}
+          golangci_lint_version: ${{ inputs.golangci_lint_version }}
           reporter: github-pr-review
           fail_level: error
           filter_mode: file
@@ -197,6 +209,7 @@ jobs:
         uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
         with:
           github_token: ${{ github.token }}
+          golangci_lint_version: ${{ inputs.golangci_lint_version }}
           reporter: github-pr-review
           fail_level: error
           filter_mode: file
