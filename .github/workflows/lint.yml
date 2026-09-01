@@ -340,7 +340,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: actionlint
-        uses: step-security/action-actionlint@c3aa382d371c6b05513ae5907d4f77713e21813c # v1.72.0
+        uses: step-security/action-actionlint@b90a9ddb65b752bc6b6888a2f30a4941d9ff62e5 # v1.73.1
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
