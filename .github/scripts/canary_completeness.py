@@ -46,7 +46,16 @@ def declared(workflow_yaml):
 
 
 def passed(caller_yaml, callee_path):
-    """job name -> set of input names that job passes to callee_path."""
+    """job name -> set of input names that job passes to callee_path.
+
+    The comparison is an EXACT match on the LOCAL path ("./.github/..."), and
+    that is load-bearing rather than incidental. actionlint only validates a
+    reusable's interface when the `uses:` resolves on disk; a canary rewritten to
+    a remote `uses: owner/repo/.github/workflows/x.yml@ref` would be silently
+    unchecked. Because a remote ref cannot equal callee_path, such a canary stops
+    counting here and its reusable reports DRIFT ("no canary calls it") instead
+    of quietly passing. Pinned by test_remote_uses_does_not_count_as_a_canary.
+    """
     doc = yaml.safe_load(caller_yaml)
     out = {}
     for name, job in ((doc or {}).get("jobs") or {}).items():

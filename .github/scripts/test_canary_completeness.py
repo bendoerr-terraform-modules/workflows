@@ -57,6 +57,15 @@ class TestPassed(unittest.TestCase):
                "    uses: ./.github/workflows/x.yml\n")
         self.assertEqual(passed(src, "./.github/workflows/x.yml"), {"j": set()})
 
+    def test_remote_uses_does_not_count_as_a_canary(self):
+        # LOCALITY IS THE MECHANISM: actionlint only checks an interface when the
+        # `uses:` resolves on disk. A canary rewritten to a remote ref must stop
+        # counting, so its reusable reports DRIFT rather than silently passing.
+        src = ("on:\n  pull_request:\njobs:\n  max-x:\n"
+               "    uses: owner/repo/.github/workflows/x.yml@main\n"
+               "    with:\n      a: \"v\"\n")
+        self.assertEqual(passed(src, "./.github/workflows/x.yml"), {})
+
     def test_no_matching_callee_yields_nothing(self):
         self.assertEqual(passed(CALLER, "./.github/workflows/absent.yml"), {})
 
