@@ -1,0 +1,170 @@
+# INTERFACE CANARIES. NONE OF THESE JOBS EVER RUN.
+#
+# They exist so actionlint resolves each local `uses:` and validates the callee's
+# workflow_call interface at PR time. Measured 2026-09-03 on actionlint 1.7.12
+# (the version CI installs -- step-security/action-actionlint@b90a9dd pins
+# ACTIONLINT_VERSION=1.7.12 in scripts/install-actionlint.sh): a job that can
+# never execute is still fully checked, and deleting a reusable file reds here
+# with "could not read reusable workflow file".
+#
+# WHY NOT `if: false`: actionlint rejects a literal as
+# `constant expression "false" in condition [if-cond]` and would red the
+# baseline. `${{ false }}` reds identically. The guard below compares against a
+# branch ref that simply never exists. It is deliberately NOT an event_name
+# comparison: on a pull_request-only trigger that is *statically* impossible,
+# which a future actionlint may well learn to flag -- reddening this baseline on
+# a version bump for no interface reason.
+#
+# WHY THEY MUST NOT RUN: release.yml publishes a GitHub release, infracost.yml
+# needs a secret, scorecard.yml uploads SARIF, and calling lint.yml with no
+# inputs turns on tflint/trivy/golangci/terraform_docs against a repo that has
+# neither a terraform nor a go module.
+#
+# MAX vs MIN, and why both:
+#   MAX passes EVERY declared input -> catches a rename, a removal, a type
+#     change, and a NEW required input.
+#   MIN passes ONLY the required inputs -> catches an existing optional input
+#     being flipped to required. MAX is SILENT on that by construction: a caller
+#     that omits nothing cannot be caught omitting something.
+# All 7 reusables currently declare ZERO required inputs, so every MIN passes
+# nothing. That is correct, not a stub -- MIN earns its keep the first day
+# something flips.
+#
+# NOTE ON VALUES: these jobs never execute, so the VALUES below are inert -- only
+# the input NAMES are load-bearing. That is deliberate. self-lint.yml, which does
+# run, passes only the four knobs it needs and inherits every other default; a
+# running job that restates a default silently narrows it the next time that
+# default changes. (Measured on this PR: an earlier revision restated
+# allowed-endpoints from a truncated read, dropped 6 of 22 hosts, and killed the
+# prettier job with what looked like an upstream outage.)
+#
+# PERMISSIONS ARE LOAD-BEARING EVEN THOUGH NOTHING RUNS. A called workflow is
+# CALLER-CAPPED: it can never receive more than the calling job grants, and
+# GitHub validates that at workflow STARTUP. Under-granting does not skip or
+# warn -- the whole run dies as `startup_failure` with ZERO jobs, which is an
+# absence, not a red. (Measured the hard way on this very PR: the first push of
+# this file granted nothing and every canary died at startup.) So each job below
+# grants exactly the union of its callee's job-level permissions; when a callee's
+# permissions change, this must change with it.
+name: Interface canaries
+
+# DELIBERATELY NOT `on: pull_request`. These jobs exist to be READ by actionlint,
+# which is static and does not care what triggers the file -- so instantiating
+# them buys nothing and costs something real: caller-cap validation runs at
+# workflow STARTUP regardless of any `if:`, and Dependabot and fork PRs get a
+# READ-ONLY GITHUB_TOKEN. A canary requesting contents:write on a Dependabot PR
+# risks killing the run at startup with ZERO jobs -- an absence, not a red -- and
+# Dependabot is this repo's main PR traffic. `workflow_dispatch` never fires on
+# its own, and the per-job `if:` below still refuses even a manual dispatch.
+# The under-grant this trigger stops GitHub from catching is now caught for real
+# by .github/scripts/canary_completeness.py (under_granted).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- MIN canaries: required-only, which today means no inputs at all ----
+  min-lint:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  min-codeql:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+
+  min-dependency-review:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  # ---- MAX canaries: every declared input, values inert ----
+  max-lint:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      tflint: false
+      trivy: false
+      golangci: false
+      terraform_docs: false
+      tflint_version: "canary"
+      markdownlint_flags: "canary"
+      golangci_workdir: "canary"
+      golangci_go_version_file: "canary"
+      golangci_workdirs: "canary"
+      golangci_lint_version: "canary"
+      allowed-endpoints: "api.github.com:443"
+
+  max-codeql:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/codeql.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    with:
+      languages: "go"
+      go-version-file: "test/go.mod"
+      allowed-endpoints: "api.github.com:443"
+
+  max-dependency-review:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      comment_summary: false
+      allowed-endpoints: "api.github.com:443"
+
+  max-infracost:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/infracost.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    # EXPLICIT, not `secrets: inherit`. `inherit` makes actionlint skip secret
+    # validation entirely, and infracost.yml's whole interface IS one required
+    # secret -- so with `inherit` a new required secret is a green board here and
+    # a red in every consumer. Measured: planting a second required secret gives
+    # actionlint rc=0 under `inherit` and rc=1 named under this form. The value is
+    # inert; the job never runs.
+    secrets:
+      INFRACOST_API_KEY: "canary"
+
+  max-pr-label:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/pr-label.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
+  max-release:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      pull-requests: write
+
+  max-scorecard:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/scorecard.yml
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write

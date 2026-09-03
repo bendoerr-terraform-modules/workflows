@@ -340,6 +340,12 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: actionlint
+        # DO NOT DROP `fail_level: error` below. This action's own default is
+        # `none`, which exits 0 unconditionally and turns this job into a
+        # comment-bot: a gate that fails OPEN with a green board. That is the
+        # same class as a run that never happened -- an absence wearing green,
+        # not a red anyone would spot. The two lines look like configuration
+        # noise; they are the reason this gate is real.
         uses: step-security/action-actionlint@b90a9ddb65b752bc6b6888a2f30a4941d9ff62e5 # v1.73.1
         with:
           github_token: ${{ github.token }}

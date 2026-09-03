@@ -1,0 +1,125 @@
+# Self-CI. Every workflow in this repo is workflow_call-only, so it has never
+# validated itself: 55 runs in its whole history, all Dependabot's update
+# machinery, while 13 consumer repos and 82 call sites depend on it. A change to
+# the shared lint/release DNA was caught only when some consumer's next PR went
+# red, in a different repo, attributed to that consumer's change.
+#
+# `uses: ./...` is a LOCAL reference, so it resolves from the same commit as this
+# caller: a PR changing lint.yml is linted BY the changed lint.yml. (Precisely: a
+# pull_request run uses refs/pull/N/merge, i.e. the PR merged into base.)
+#
+# This job passes ONLY what the run needs and inherits every other default --
+# deliberately. lint.yml's MAX canary is `max-lint` in canaries.yml, which never
+# runs, so its input VALUES are irrelevant and only its input NAMES matter.
+#
+# Keeping the two apart removes a real hazard: an earlier revision of this file
+# passed `allowed-endpoints` explicitly, transcribed by eye from a truncated view
+# of the default. It dropped 6 of the 22 hosts -- including
+# release-assets.githubusercontent.com -- and the prettier job's reviewdog
+# installer died on a blocked egress that looked exactly like an upstream
+# outage. A running job that restates a default silently narrows it on every
+# future change to that default.
+#
+# The four module knobs are false because this repo has no terraform module and
+# no go module. That leaves the six file-only linters -- including actionlint,
+# which this repo ships to 13 other repos and had never run on itself.
+name: Self lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      tflint: false
+      trivy: false
+      golangci: false
+      terraform_docs: false
+
+  canary-completeness:
+    name: canary completeness
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            files.pythonhosted.org:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pypi.org:443
+            release-assets.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Ensure PyYAML
+        # Runner images ship PyYAML, but do not ASSUME it: probe, then install.
+        # `--user` alone can fail with PEP 668 externally-managed-environment on
+        # current images, so the fallback carries --break-system-packages.
+        run: |
+          python3 -c "import yaml; print('PyYAML', yaml.__version__)" ||
+            python3 -m pip install --break-system-packages pyyaml==6.0.2
+          python3 -c "import yaml"
+
+      - name: Unit-test the guard
+        # Runs in CI, not only on the author's laptop. A proof that only ever ran
+        # locally is a proof about a session, not about the file.
+        run: cd .github/scripts && python3 -m unittest test_canary_completeness -v
+
+      - name: Assert canaries still cover every reusable interface
+        run: python3 .github/scripts/canary_completeness.py
+
+      # WHOLE-TREE, UNFILTERED actionlint. This is NOT a duplicate of the
+      # reviewdog actionlint job in lint.yml -- it answers a different question,
+      # and without it the canaries can go silently green on exactly the PRs
+      # that break an interface.
+      #
+      # Measured (@yourcodekitten / @lilith-mother-of-demons, reviewdog 0.21.0 +
+      # actionlint 1.7.12): the reviewdog job runs `filter_mode: file`, so a
+      # finding in a file the PR did not modify is filtered out AND excluded
+      # from fail_level -- rc=0, silent. A PR editing only lint.yml never
+      # touches canaries.yml, which is precisely where a broken interface is
+      # reported. A `nofilter` control on the same pipe reds, so the filter is
+      # what eats it.
+      #
+      # It also covers push-to-main, where every reviewdog job is inert:
+      # reviewdog returns nil before processing diagnostics when the event is
+      # not a pull request.
+      #
+      # Version pinned to match the binary the reviewdog wrapper ships
+      # (step-security/action-actionlint@b90a9dd -> ACTIONLINT_VERSION=1.7.12),
+      # so the two instruments cannot disagree about what the rules are.
+      - name: actionlint (whole tree, unfiltered)
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          # sha256 of actionlint_1.7.12_linux_amd64.tar.gz from the release's own
+          # checksums file. This repo SHA-pins every `uses:`; a binary curled at
+          # run time deserves the same treatment, or the pin discipline stops at
+          # the first `run:` block. Bump both lines together.
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          # -f so an HTTP error is an HTTP error. Without it curl writes the
+          # error page and exits 0, and the failure surfaces later as a
+          # confusing tar error -- a real failure reported as the wrong cause.
+          curl -sSLfo /tmp/actionlint.tgz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tgz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          /tmp/actionlint -version
+          /tmp/actionlint

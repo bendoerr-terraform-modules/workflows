@@ -1,0 +1,3 @@
+# Byte-compiled cache from running the guard's unit tests locally.
+__pycache__/
+*.py[cod]
