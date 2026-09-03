@@ -1,0 +1,91 @@
+# INTERFACE CANARIES. NONE OF THESE JOBS EVER RUN.
+#
+# They exist so actionlint resolves each local `uses:` and validates the callee's
+# workflow_call interface at PR time. Measured 2026-09-03 on actionlint 1.7.12
+# (the version CI installs -- step-security/action-actionlint@b90a9dd pins
+# ACTIONLINT_VERSION=1.7.12 in scripts/install-actionlint.sh): a job that can
+# never execute is still fully checked, and deleting a reusable file reds here
+# with "could not read reusable workflow file".
+#
+# WHY NOT `if: false`: actionlint rejects a literal as
+# `constant expression "false" in condition [if-cond]` and would red the
+# baseline. `${{ false }}` reds identically. The guard below compares against a
+# branch ref that simply never exists. It is deliberately NOT an event_name
+# comparison: on a pull_request-only trigger that is *statically* impossible,
+# which a future actionlint may well learn to flag -- reddening this baseline on
+# a version bump for no interface reason.
+#
+# WHY THEY MUST NOT RUN: release.yml publishes a GitHub release, infracost.yml
+# needs a secret, scorecard.yml uploads SARIF, and calling lint.yml with no
+# inputs turns on tflint/trivy/golangci/terraform_docs against a repo that has
+# neither a terraform nor a go module.
+#
+# MAX vs MIN, and why both:
+#   MAX passes EVERY declared input -> catches a rename, a removal, a type
+#     change, and a NEW required input.
+#   MIN passes ONLY the required inputs -> catches an existing optional input
+#     being flipped to required. MAX is SILENT on that by construction: a caller
+#     that omits nothing cannot be caught omitting something.
+# All 7 reusables currently declare ZERO required inputs, so every MIN passes
+# nothing. That is correct, not a stub -- MIN earns its keep the first day
+# something flips.
+#
+# lint.yml's MAX canary is self-lint.yml, which passes all 11 inputs and also
+# actually runs.
+name: Interface canaries
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- MIN canaries: required-only, which today means no inputs at all ----
+  min-lint:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/lint.yml
+
+  min-codeql:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/codeql.yml
+
+  min-dependency-review:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/dependency-review.yml
+
+  # ---- MAX canaries for the six reusables self-lint.yml does not cover ----
+  max-codeql:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/codeql.yml
+    with:
+      languages: "go"
+      go-version-file: "test/go.mod"
+      allowed-endpoints: "api.github.com:443"
+
+  max-dependency-review:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/dependency-review.yml
+    with:
+      comment_summary: false
+      allowed-endpoints: "api.github.com:443"
+
+  max-infracost:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/infracost.yml
+    secrets: inherit
+
+  max-pr-label:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/pr-label.yml
+
+  max-release:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      pull-requests: write
+
+  max-scorecard:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/scorecard.yml
