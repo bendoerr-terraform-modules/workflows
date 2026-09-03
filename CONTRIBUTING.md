@@ -21,10 +21,10 @@ CONTRIBUTING.md                # this file
 
 You don't get max-propagation **and** controlled-blast on the same workflow. Pick per blast radius:
 
-| lane | workflows | why |
-|------|-----------|-----|
-| **SHA-pin** (`@<sha>`) | `lint`, `test` (terratest) | gate-definers; a bad push must not turn every repo's CI red at once. Consistent with how every `uses:` here is already SHA-pinned; dependabot group-bumps the SHAs. |
-| **moving `@v1`** | `pr-label`, `scorecard`, `dependency-review` | can't block a merge, so instant org-wide propagation is safe. |
+| lane                   | workflows                                    | why                                                                                                                                                                 |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SHA-pin** (`@<sha>`) | `lint`, `test` (terratest)                   | gate-definers; a bad push must not turn every repo's CI red at once. Consistent with how every `uses:` here is already SHA-pinned; dependabot group-bumps the SHAs. |
+| **moving `@v1`**       | `pr-label`, `scorecard`, `dependency-review` | can't block a merge, so instant org-wide propagation is safe.                                                                                                       |
 
 Tags: moving `v1` (major) + immutable `v1.x.y`.
 
@@ -32,7 +32,7 @@ Tags: moving `v1` (major) + immutable `v1.x.y`.
 
 ```yaml
 name: lint
-on: [pull_request]          # triggers stay in the caller — can't live in a reusable workflow
+on: [pull_request] # triggers stay in the caller — can't live in a reusable workflow
 permissions: { contents: read }
 jobs:
   lint:

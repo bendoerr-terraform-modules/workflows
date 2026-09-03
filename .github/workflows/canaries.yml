@@ -32,6 +32,15 @@
 #
 # lint.yml's MAX canary is self-lint.yml, which passes all 11 inputs and also
 # actually runs.
+#
+# PERMISSIONS ARE LOAD-BEARING EVEN THOUGH NOTHING RUNS. A called workflow is
+# CALLER-CAPPED: it can never receive more than the calling job grants, and
+# GitHub validates that at workflow STARTUP. Under-granting does not skip or
+# warn -- the whole run dies as `startup_failure` with ZERO jobs, which is an
+# absence, not a red. (Measured the hard way on this very PR: the first push of
+# this file granted nothing and every canary died at startup.) So each job below
+# grants exactly the union of its callee's job-level permissions; when a callee's
+# permissions change, this must change with it.
 name: Interface canaries
 
 on:
@@ -45,19 +54,35 @@ jobs:
   min-lint:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+      pull-requests: write
 
   min-codeql:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/codeql.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
 
   min-dependency-review:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
 
   # ---- MAX canaries for the six reusables self-lint.yml does not cover ----
   max-codeql:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/codeql.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
     with:
       languages: "go"
       go-version-file: "test/go.mod"
@@ -66,6 +91,9 @@ jobs:
   max-dependency-review:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/dependency-review.yml
+    permissions:
+      contents: read
+      pull-requests: write
     with:
       comment_summary: false
       allowed-endpoints: "api.github.com:443"
@@ -73,11 +101,17 @@ jobs:
   max-infracost:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/infracost.yml
+    permissions:
+      contents: read
+      pull-requests: write
     secrets: inherit
 
   max-pr-label:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/pr-label.yml
+    permissions:
+      contents: read
+      pull-requests: write
 
   max-release:
     if: github.ref == 'refs/heads/__canary_never__'
@@ -89,3 +123,7 @@ jobs:
   max-scorecard:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/scorecard.yml
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
