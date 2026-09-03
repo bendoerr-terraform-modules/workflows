@@ -65,6 +65,36 @@ def passed(caller_yaml, callee_path):
     return out
 
 
+def drifted(all_inputs, required, jobs):
+    """Return DRIFT messages for one reusable; empty list means covered.
+
+    `jobs` is {canary job label -> set of input names it passes}. Extracted from
+    main() so the RULE has unit rows of its own: it was previously exercised only
+    by forcing a red against the live tree, which is a real arm but leaves a
+    refactor free to change the rule with every unit test still green.
+    """
+    if not jobs:
+        return ["no canary calls it - its interface is unchecked"]
+    msgs = []
+    # Exact-set membership, never "the biggest one": two canaries passing
+    # different sets of equal size would let max(key=len) decide a gate on a
+    # tie-break. `closest` only makes the message useful.
+    if not any(v == all_inputs for v in jobs.values()):
+        closest = max(jobs.values(), key=len)
+        msgs.append(
+            f"no MAX canary passes the full input set; closest is missing "
+            f"{sorted(all_inputs - closest)}, extra {sorted(closest - all_inputs)}"
+        )
+    # Where MAX passes nothing it already IS the MIN, so only demand one when
+    # the reusable actually declares inputs.
+    if all_inputs and not any(v == required for v in jobs.values()):
+        msgs.append(
+            f"no MIN canary passing exactly the required set "
+            f"{sorted(required) or '(none)'}"
+        )
+    return msgs
+
+
 def main():
     if not WF.is_dir():
         print(f"NOT MEASURED - {WF} is not a directory")
@@ -95,21 +125,13 @@ def main():
             # measured population without saying so.
             for job, ins in passed(src, rel).items():
                 jobs[f"{fname}:{job}"] = ins
-        if not jobs:
-            drift += 1
-            print(f"  DRIFT {f.name}: no canary calls it - its interface is unchecked")
-            continue
-        best = max(jobs.values(), key=len)
-        if best != all_i:
-            drift += 1
-            print(f"  DRIFT {f.name}: no MAX canary passes the full input set; "
-                  f"missing {sorted(all_i - best)}, extra {sorted(best - all_i)}")
+        msgs = drifted(all_i, req, jobs)
+        if msgs:
+            drift += len(msgs)
+            for m in msgs:
+                print(f"  DRIFT {f.name}: {m}")
         else:
             print(f"  ok {f.name}: MAX passes all {len(all_i)} input(s)")
-        if all_i and not any(v == req for v in jobs.values()):
-            drift += 1
-            print(f"  DRIFT {f.name}: no MIN canary passing exactly the required "
-                  f"set {sorted(req) or '(none)'}")
 
     # PRINT THE DENOMINATOR: "0 drift" over an unstated population is not a pass.
     print(f"-- {reusables} reusable(s) checked, {drift} drifted --")

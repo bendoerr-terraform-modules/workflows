@@ -1,6 +1,6 @@
 import unittest
 
-from canary_completeness import declared, passed
+from canary_completeness import declared, drifted, passed
 
 CALLEE = """
 on:
@@ -68,6 +68,40 @@ class TestPassed(unittest.TestCase):
 
     def test_no_matching_callee_yields_nothing(self):
         self.assertEqual(passed(CALLER, "./.github/workflows/absent.yml"), {})
+
+
+class TestDrifted(unittest.TestCase):
+    """The DRIFT decisions themselves. Previously these were only exercised by
+    forcing a red against the live tree -- a real arm, but not a unit row, so a
+    refactor could change the rule with every unit test still green."""
+
+    def test_exact_max_and_min_is_clean(self):
+        self.assertEqual(drifted({"a", "b"}, {"b"},
+                                 {"max": {"a", "b"}, "min": {"b"}}), [])
+
+    def test_missing_input_in_max_is_drift(self):
+        msgs = drifted({"a", "b"}, set(), {"max": {"a"}, "min": set()})
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("'b'", msgs[0].replace('"', "'"))
+
+    def test_no_canary_at_all_is_drift(self):
+        msgs = drifted({"a"}, set(), {})
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("no canary", msgs[0])
+
+    def test_missing_min_is_drift_when_max_passes_inputs(self):
+        msgs = drifted({"a", "b"}, {"b"}, {"max": {"a", "b"}})
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("MIN", msgs[0])
+
+    def test_zero_input_reusable_needs_no_min(self):
+        # Where MAX passes nothing it already IS the MIN.
+        self.assertEqual(drifted(set(), set(), {"max": set()}), [])
+
+    def test_equal_sized_but_wrong_sets_do_not_pass_on_a_tiebreak(self):
+        # max(key=len) would pick arbitrarily here; the verdict must be exact.
+        msgs = drifted({"a", "b"}, set(), {"c1": {"a", "x"}, "c2": {"b", "y"}})
+        self.assertTrue(msgs)
 
 
 if __name__ == "__main__":
