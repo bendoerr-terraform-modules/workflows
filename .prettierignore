@@ -1,0 +1,11 @@
+# Markdown is owned by mdformat (see the mdformat job in lint.yml), not prettier.
+# Keep prettier off all markdown so the two formatters never fight over it.
+#
+# This file is copied from the consumer repos. lint.yml's own prettier job
+# carries the comment "Markdown is excluded from prettier via .prettierignore --
+# mdformat owns it", i.e. the reusable states a requirement about its CALLER --
+# and until this commit the library that ships that job was the one caller in
+# the org that did not satisfy it. Nothing could notice, because this repo had
+# no CI at all.
+*.md
+**/*.md
