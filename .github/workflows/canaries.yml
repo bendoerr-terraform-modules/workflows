@@ -30,8 +30,13 @@
 # nothing. That is correct, not a stub -- MIN earns its keep the first day
 # something flips.
 #
-# lint.yml's MAX canary is self-lint.yml, which passes all 11 inputs and also
-# actually runs.
+# NOTE ON VALUES: these jobs never execute, so the VALUES below are inert -- only
+# the input NAMES are load-bearing. That is deliberate. self-lint.yml, which does
+# run, passes only the four knobs it needs and inherits every other default; a
+# running job that restates a default silently narrows it the next time that
+# default changes. (Measured on this PR: an earlier revision restated
+# allowed-endpoints from a truncated read, dropped 6 of 22 hosts, and killed the
+# prettier job with what looked like an upstream outage.)
 #
 # PERMISSIONS ARE LOAD-BEARING EVEN THOUGH NOTHING RUNS. A called workflow is
 # CALLER-CAPPED: it can never receive more than the calling job grants, and
@@ -74,7 +79,26 @@ jobs:
       contents: read
       pull-requests: write
 
-  # ---- MAX canaries for the six reusables self-lint.yml does not cover ----
+  # ---- MAX canaries: every declared input, values inert ----
+  max-lint:
+    if: github.ref == 'refs/heads/__canary_never__'
+    uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      tflint: false
+      trivy: false
+      golangci: false
+      terraform_docs: false
+      tflint_version: "canary"
+      markdownlint_flags: "canary"
+      golangci_workdir: "canary"
+      golangci_go_version_file: "canary"
+      golangci_workdirs: "canary"
+      golangci_lint_version: "canary"
+      allowed-endpoints: "api.github.com:443"
+
   max-codeql:
     if: github.ref == 'refs/heads/__canary_never__'
     uses: ./.github/workflows/codeql.yml

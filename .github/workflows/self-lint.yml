@@ -8,11 +8,17 @@
 # caller: a PR changing lint.yml is linted BY the changed lint.yml. (Precisely: a
 # pull_request run uses refs/pull/N/merge, i.e. the PR merged into base.)
 #
-# This file is ALSO lint.yml's MAX canary. It passes all 11 declared inputs on
-# purpose: actionlint validates a local uses: against the callee's interface, so
-# passing the full set makes a rename or removal of ANY input red here. Dropping
-# one from this `with:` silently narrows that coverage, which is why
-# .github/scripts/canary_completeness.py asserts the set stays complete.
+# This job passes ONLY what the run needs and inherits every other default --
+# deliberately. lint.yml's MAX canary is `max-lint` in canaries.yml, which never
+# runs, so its input VALUES are irrelevant and only its input NAMES matter.
+#
+# Keeping the two apart removes a real hazard: an earlier revision of this file
+# passed `allowed-endpoints` explicitly, transcribed by eye from a truncated view
+# of the default. It dropped 6 of the 22 hosts -- including
+# release-assets.githubusercontent.com -- and the prettier job's reviewdog
+# installer died on a blocked egress that looked exactly like an upstream
+# outage. A running job that restates a default silently narrows it on every
+# future change to that default.
 #
 # The four module knobs are false because this repo has no terraform module and
 # no go module. That leaves the six file-only linters -- including actionlint,
@@ -38,34 +44,6 @@ jobs:
       trivy: false
       golangci: false
       terraform_docs: false
-      tflint_version: "v0.49.0"
-      markdownlint_flags: "--disable MD033 MD013 -- ."
-      golangci_workdir: "test/"
-      golangci_go_version_file: "test/go.mod"
-      golangci_workdirs: ""
-      golangci_lint_version: "v2.12.2"
-      # MUST be the reusable's full default, verbatim. All 11 of lint.yml's jobs
-      # run harden-runner with egress-policy: block and allowed-endpoints taken
-      # from this input, so a trimmed list strangles every linter -- mdformat is
-      # a Python tool and needs pypi. Consumers pass nothing and inherit this
-      # list; we must pass it because the MAX canary has to cover all 11 inputs.
-      allowed-endpoints: >-
-        api.github.com:443
-        check.trivy.dev:443
-        checkpoint-api.hashicorp.com:443
-        dl.google.com:443
-        files.pythonhosted.org:443
-        ghcr.io:443
-        github.com:22
-        github.com:443
-        go.dev:443
-        golang.org:443
-        mirror.gcr.io:443
-        objects.githubusercontent.com:443
-        pkg-containers.githubusercontent.com:443
-        proxy.golang.org:443
-        pypi.org:443
-        raw.githubusercontent.com:443
 
   canary-completeness:
     name: canary completeness
