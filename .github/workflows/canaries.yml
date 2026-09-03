@@ -48,8 +48,18 @@
 # permissions change, this must change with it.
 name: Interface canaries
 
+# DELIBERATELY NOT `on: pull_request`. These jobs exist to be READ by actionlint,
+# which is static and does not care what triggers the file -- so instantiating
+# them buys nothing and costs something real: caller-cap validation runs at
+# workflow STARTUP regardless of any `if:`, and Dependabot and fork PRs get a
+# READ-ONLY GITHUB_TOKEN. A canary requesting contents:write on a Dependabot PR
+# risks killing the run at startup with ZERO jobs -- an absence, not a red -- and
+# Dependabot is this repo's main PR traffic. `workflow_dispatch` never fires on
+# its own, and the per-job `if:` below still refuses even a manual dispatch.
+# The under-grant this trigger stops GitHub from catching is now caught for real
+# by .github/scripts/canary_completeness.py (under_granted).
 on:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -128,7 +138,14 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    secrets: inherit
+    # EXPLICIT, not `secrets: inherit`. `inherit` makes actionlint skip secret
+    # validation entirely, and infracost.yml's whole interface IS one required
+    # secret -- so with `inherit` a new required secret is a green board here and
+    # a red in every consumer. Measured: planting a second required secret gives
+    # actionlint rc=0 under `inherit` and rc=1 named under this form. The value is
+    # inert; the job never runs.
+    secrets:
+      INFRACOST_API_KEY: "canary"
 
   max-pr-label:
     if: github.ref == 'refs/heads/__canary_never__'

@@ -28,6 +28,9 @@ import yaml
 
 WF = pathlib.Path(".github/workflows")
 CANARY_FILES = ["canaries.yml", "self-lint.yml"]
+# GitHub accepts BOTH extensions. A .yml-only glob silently shrinks the
+# population -- the exact hole the denominator print below exists to catch.
+WORKFLOW_GLOB = "*.y*ml"
 
 
 def _on(doc):
@@ -63,6 +66,58 @@ def passed(caller_yaml, callee_path):
             continue
         out[name] = set(((job or {}).get("with")) or {})
     return out
+
+
+RANK = {"none": 0, "read": 1, "write": 2}
+
+
+def needed_permissions(workflow_yaml):
+    """Union of a reusable's job-level permissions -- what a caller MUST grant.
+
+    A called workflow is CALLER-CAPPED: it can never receive more than the
+    calling job grants, and GitHub validates that at workflow STARTUP. An
+    under-grant does not warn or skip; the whole run dies with ZERO jobs, which
+    is an absence, not a red. That invariant used to be prose in canaries.yml
+    with nothing checking it, so a callee adding a permission would have taken
+    every interface check down at once, silently.
+    """
+    doc = yaml.safe_load(workflow_yaml)
+    out = {}
+    for job in ((doc or {}).get("jobs") or {}).values():
+        perms = (job or {}).get("permissions") or {}
+        if not isinstance(perms, dict):
+            continue
+        for k, v in perms.items():
+            if RANK.get(str(v), 0) > RANK.get(str(out.get(k, "none")), 0):
+                out[k] = v
+    return out
+
+
+def granted(caller_yaml, callee_path):
+    """job name -> permissions dict that job grants to callee_path."""
+    doc = yaml.safe_load(caller_yaml)
+    out = {}
+    for name, job in ((doc or {}).get("jobs") or {}).items():
+        if (job or {}).get("uses") != callee_path:
+            continue
+        out[name] = (job or {}).get("permissions") or {}
+    return out
+
+
+def under_granted(need, grants):
+    """Messages for canary jobs granting less than their callee needs."""
+    msgs = []
+    for job, have in sorted(grants.items()):
+        short = [
+            f"{k}:{v}" for k, v in sorted(need.items())
+            if RANK.get(str(have.get(k, "none")), 0) < RANK.get(str(v), 0)
+        ]
+        if short:
+            msgs.append(
+                f"canary job '{job}' under-grants {short} - a caller-capped "
+                "callee dies at STARTUP with zero jobs, not a red"
+            )
+    return msgs
 
 
 def drifted(all_inputs, required, jobs):
@@ -108,7 +163,7 @@ def main():
         callers[name] = p.read_text()
 
     reusables, drift = 0, 0
-    for f in sorted(WF.glob("*.yml")):
+    for f in sorted(WF.glob(WORKFLOW_GLOB)):
         if f.name in CANARY_FILES:
             continue
         d = declared(f.read_text())
@@ -126,6 +181,12 @@ def main():
             for job, ins in passed(src, rel).items():
                 jobs[f"{fname}:{job}"] = ins
         msgs = drifted(all_i, req, jobs)
+        need = needed_permissions(f.read_text())
+        grants = {}
+        for fname, src in callers.items():
+            for job, perms in granted(src, rel).items():
+                grants[f"{fname}:{job}"] = perms
+        msgs += under_granted(need, grants)
         if msgs:
             drift += len(msgs)
             for m in msgs:

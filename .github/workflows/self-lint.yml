@@ -59,7 +59,9 @@ jobs:
             api.github.com:443
             files.pythonhosted.org:443
             github.com:443
+            objects.githubusercontent.com:443
             pypi.org:443
+            release-assets.githubusercontent.com:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -81,3 +83,33 @@ jobs:
 
       - name: Assert canaries still cover every reusable interface
         run: python3 .github/scripts/canary_completeness.py
+
+      # WHOLE-TREE, UNFILTERED actionlint. This is NOT a duplicate of the
+      # reviewdog actionlint job in lint.yml -- it answers a different question,
+      # and without it the canaries can go silently green on exactly the PRs
+      # that break an interface.
+      #
+      # Measured (@yourcodekitten / @lilith-mother-of-demons, reviewdog 0.21.0 +
+      # actionlint 1.7.12): the reviewdog job runs `filter_mode: file`, so a
+      # finding in a file the PR did not modify is filtered out AND excluded
+      # from fail_level -- rc=0, silent. A PR editing only lint.yml never
+      # touches canaries.yml, which is precisely where a broken interface is
+      # reported. A `nofilter` control on the same pipe reds, so the filter is
+      # what eats it.
+      #
+      # It also covers push-to-main, where every reviewdog job is inert:
+      # reviewdog returns nil before processing diagnostics when the event is
+      # not a pull request.
+      #
+      # Version pinned to match the binary the reviewdog wrapper ships
+      # (step-security/action-actionlint@b90a9dd -> ACTIONLINT_VERSION=1.7.12),
+      # so the two instruments cannot disagree about what the rules are.
+      - name: actionlint (whole tree, unfiltered)
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          curl -sSLo /tmp/actionlint.tgz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          /tmp/actionlint -version
+          /tmp/actionlint

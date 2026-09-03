@@ -1,6 +1,8 @@
 import unittest
 
-from canary_completeness import declared, drifted, passed
+from canary_completeness import (declared, drifted, granted,
+                                 needed_permissions, passed,
+                                 under_granted)
 
 CALLEE = """
 on:
@@ -102,6 +104,54 @@ class TestDrifted(unittest.TestCase):
         # max(key=len) would pick arbitrarily here; the verdict must be exact.
         msgs = drifted({"a", "b"}, set(), {"c1": {"a", "x"}, "c2": {"b", "y"}})
         self.assertTrue(msgs)
+
+
+class TestPermissions(unittest.TestCase):
+    """Caller-cap: a callee can never receive more than the calling job grants,
+    and GitHub validates it at STARTUP -- an under-grant kills the run with zero
+    jobs. That is an absence, so it needs a real red rather than a missing one."""
+
+    CALLEE = """
+on:
+  workflow_call:
+jobs:
+  a:
+    permissions:
+      contents: read
+      pull-requests: write
+  b:
+    permissions:
+      contents: write
+"""
+
+    def test_union_takes_the_widest_of_each_scope(self):
+        self.assertEqual(needed_permissions(self.CALLEE),
+                         {"contents": "write", "pull-requests": "write"})
+
+    def test_granted_reads_the_calling_job(self):
+        src = ("on:\n  workflow_dispatch:\njobs:\n  c:\n"
+               "    uses: ./.github/workflows/x.yml\n"
+               "    permissions:\n      contents: write\n")
+        self.assertEqual(granted(src, "./.github/workflows/x.yml"),
+                         {"c": {"contents": "write"}})
+
+    def test_exact_grant_is_clean(self):
+        need = {"contents": "write", "pull-requests": "write"}
+        self.assertEqual(under_granted(need, {"c": dict(need)}), [])
+
+    def test_missing_scope_is_under_granted(self):
+        msgs = under_granted({"id-token": "write"}, {"c": {"contents": "read"}})
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("id-token:write", msgs[0])
+
+    def test_read_where_write_is_needed_is_under_granted(self):
+        msgs = under_granted({"contents": "write"}, {"c": {"contents": "read"}})
+        self.assertEqual(len(msgs), 1)
+
+    def test_over_granting_is_not_a_finding(self):
+        # Only UNDER-granting kills the run; a wider grant is a separate concern.
+        self.assertEqual(
+            under_granted({"contents": "read"}, {"c": {"contents": "write"}}), [])
 
 
 if __name__ == "__main__":
