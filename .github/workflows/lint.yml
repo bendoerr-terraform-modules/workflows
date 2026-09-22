@@ -141,7 +141,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: trivy
-        uses: reviewdog/action-trivy@102f1eda529aaab3502cbef08bbb0050ee0b6b60 # v1.15.0
+        uses: reviewdog/action-trivy@aa68cc9532e944d1b1d91045a37405e46182dd2c # v1.15.1
         with:
           github_token: ${{ github.token }}
           trivy_command: config
