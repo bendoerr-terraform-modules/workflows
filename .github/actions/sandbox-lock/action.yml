@@ -1,0 +1,87 @@
+name: sandbox-lock
+description: >-
+  Cross-repo reader/writer lease lock on the shared sandbox AWS account. Terratest
+  lanes take it as reader; the sandbox nuke as writer. Requires AWS credentials
+  (configure-aws-credentials) earlier in the job and egress to
+  dynamodb.us-east-1.amazonaws.com:443.
+inputs:
+  mode:
+    description: "acquire or release. Put release in a step with `if: always()`."
+    required: true
+  role:
+    description: "reader (terratest) or writer (nuke)."
+    required: true
+  max-wait-seconds:
+    description: >-
+      How long acquire waits before failing loudly. Keep wait + hold under the
+      role's 3600 s session: the renewer uses the credentials present at acquire.
+    required: false
+    default: "1200"
+  lease-seconds:
+    description: Lease length. A holder that stops renewing is released after this long.
+    required: false
+    default: "600"
+  renew-seconds:
+    description: How often the background renewer extends the lease.
+    required: false
+    default: "120"
+  holder-label:
+    description: >-
+      Extra text in the holder id, e.g. a matrix leg, so a post-mortem can tell
+      legs of one job apart.
+    required: false
+    default: ""
+  table:
+    description: DynamoDB table holding the lock item.
+    required: false
+    default: brd-sndbx-ue1-core-sandbox-lock
+runs:
+  using: composite
+  steps:
+    - name: sandbox-lock ${{ inputs.mode }} (${{ inputs.role }})
+      shell: bash
+      env:
+        LOCK_MODE: ${{ inputs.mode }}
+        LOCK_ROLE: ${{ inputs.role }}
+        LOCK_MAX_WAIT: ${{ inputs.max-wait-seconds }}
+        LOCK_LEASE: ${{ inputs.lease-seconds }}
+        LOCK_RENEW: ${{ inputs.renew-seconds }}
+        LOCK_LABEL: ${{ inputs.holder-label }}
+        LOCK_TABLE: ${{ inputs.table }}
+        LOCK_PY: ${{ github.action_path }}/sandbox_lock.py
+      run: |
+        set -euo pipefail
+        state="$RUNNER_TEMP/sandbox-lock-$LOCK_ROLE"
+        case "$LOCK_MODE" in
+          acquire)
+            holder="$GITHUB_REPOSITORY/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT/$GITHUB_JOB${LOCK_LABEL:+/$LOCK_LABEL}/$(python3 -c 'import secrets; print(secrets.token_hex(3))')"
+            printf '%s\n' "$holder" > "$state.holder"
+            rm -f "$state.acquired" "$state.lost" "$state.pid" "$state.renew.log"
+            python3 "$LOCK_PY" acquire --role "$LOCK_ROLE" --holder "$holder" --table "$LOCK_TABLE" \
+              --max-wait "$LOCK_MAX_WAIT" --lease "$LOCK_LEASE"
+            touch "$state.acquired"
+            nohup python3 "$LOCK_PY" renew-loop --role "$LOCK_ROLE" --holder "$holder" --table "$LOCK_TABLE" \
+              --lease "$LOCK_LEASE" --interval "$LOCK_RENEW" --lost-file "$state.lost" > "$state.renew.log" 2>&1 &
+            printf '%s\n' "$!" > "$state.pid"
+            ;;
+          release)
+            if [ ! -f "$state.acquired" ]; then
+              echo "sandbox-lock: NOT HELD - acquire did not complete in this job; nothing to release"
+              exit 0
+            fi
+            if [ -f "$state.pid" ]; then kill "$(cat "$state.pid")" 2>/dev/null || true; fi
+            if [ -s "$state.renew.log" ]; then
+              echo "--- renewer log ---"
+              cat "$state.renew.log"
+            fi
+            rc=0
+            python3 "$LOCK_PY" release --role "$LOCK_ROLE" --holder "$(cat "$state.holder")" \
+              --table "$LOCK_TABLE" --lease "$LOCK_LEASE" --lost-file "$state.lost" --expect-held || rc=$?
+            rm -f "$state.acquired" "$state.pid"
+            exit "$rc"
+            ;;
+          *)
+            echo "::error::sandbox-lock: USAGE - mode must be acquire or release, got '$LOCK_MODE'; nothing was measured"
+            exit 64
+            ;;
+        esac
