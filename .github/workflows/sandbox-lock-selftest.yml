@@ -1,0 +1,133 @@
+# Self-test for .github/actions/sandbox-lock, against moto (a local fake DynamoDB
+# API) so compare-and-set, lease lapse and the unreadable store are proven through
+# the real aws CLI, not a mock of it. The `action` job runs the composite action
+# itself: the background renewer, the lost-lease path and release.
+name: sandbox-lock selftest
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/sandbox-lock/**"
+      - ".github/workflows/sandbox-lock-selftest.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/sandbox-lock/**"
+      - ".github/workflows/sandbox-lock-selftest.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_ENDPOINT_URL: http://127.0.0.1:5555
+  AWS_ACCESS_KEY_ID: testing
+  AWS_SECRET_ACCESS_KEY: testing
+  AWS_DEFAULT_REGION: us-east-1
+  SANDBOX_LOCK_TABLE: lock-selftest
+
+jobs:
+  script:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            files.pythonhosted.org:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pypi.org:443
+            release-assets.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests
+        working-directory: .github/actions/sandbox-lock
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest test_sandbox_lock -v
+
+      - name: Start moto
+        run: .github/actions/sandbox-lock/start-moto.sh
+
+      - name: Integration arms
+        working-directory: .github/actions/sandbox-lock
+        run: python3 -m unittest test_sandbox_lock_integration -v
+
+  action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            files.pythonhosted.org:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pypi.org:443
+            release-assets.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start moto
+        run: .github/actions/sandbox-lock/start-moto.sh
+
+      - name: "Arm 1: acquire as reader with a short lease"
+        uses: ./.github/actions/sandbox-lock
+        with:
+          mode: acquire
+          role: reader
+          lease-seconds: "12"
+          renew-seconds: "3"
+
+      - name: "Arm 1: the renewer keeps the lease alive past its length"
+        run: |
+          kill -0 "$(cat "$RUNNER_TEMP/sandbox-lock-reader.pid")"
+          sleep 20
+          python3 .github/actions/sandbox-lock/assert-holding.py reader "$(cat "$RUNNER_TEMP/sandbox-lock-reader.holder")"
+
+      - name: "Arm 1: release"
+        uses: ./.github/actions/sandbox-lock
+        with:
+          mode: release
+          role: reader
+          lease-seconds: "12"
+
+      - name: "Arm 2: acquire as writer, then kill the renewer"
+        uses: ./.github/actions/sandbox-lock
+        with:
+          mode: acquire
+          role: writer
+          lease-seconds: "6"
+          renew-seconds: "2"
+
+      - name: "Arm 2: crash the renewer and outlive the lease"
+        run: |
+          kill -9 "$(cat "$RUNNER_TEMP/sandbox-lock-writer.pid")"
+          sleep 10
+
+      - name: "Arm 2: release must report LEASE LOST"
+        id: lost
+        continue-on-error: true
+        uses: ./.github/actions/sandbox-lock
+        with:
+          mode: release
+          role: writer
+          lease-seconds: "6"
+
+      - name: "Arm 2: assert release failed"
+        env:
+          OUTCOME: ${{ steps.lost.outcome }}
+        run: |
+          echo "release outcome: $OUTCOME"
+          test "$OUTCOME" = failure
