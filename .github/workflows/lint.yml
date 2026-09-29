@@ -141,7 +141,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: trivy
-        uses: reviewdog/action-trivy@aa68cc9532e944d1b1d91045a37405e46182dd2c # v1.15.1
+        uses: reviewdog/action-trivy@765ed28176fa16dcac6ced7a652f51f6fd871174 # v1.16.0
         with:
           github_token: ${{ github.token }}
           trivy_command: config
@@ -291,7 +291,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: alex
-        uses: reviewdog/action-alex@347481655add010a2ae302df34b57c9bcfa0d6e4 # v1.17.0
+        uses: reviewdog/action-alex@8ea6934ac252503fe358596c681d9899f0d85485 # v1.18.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
