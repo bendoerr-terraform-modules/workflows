@@ -346,7 +346,7 @@ jobs:
         # same class as a run that never happened -- an absence wearing green,
         # not a red anyone would spot. The two lines look like configuration
         # noise; they are the reason this gate is real.
-        uses: step-security/action-actionlint@b90a9ddb65b752bc6b6888a2f30a4941d9ff62e5 # v1.73.1
+        uses: step-security/action-actionlint@b2b21b6e020989da8beae86d6c3a1291c46d45d5 # v1.76.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
