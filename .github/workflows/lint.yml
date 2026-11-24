@@ -104,7 +104,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -114,7 +114,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: tflint
-        uses: step-security/action-tflint@285fe25934512644274b253b424a5d4b8f1c2dc5 # v1.25.0
+        uses: step-security/action-tflint@3bb39a1bdfe833ee6b2dfd382a0264dcee792be4 # v1.28.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -131,7 +131,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -141,7 +141,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: trivy
-        uses: reviewdog/action-trivy@0eb5663c96f2b3ae3c38e7804f89821339085f0e # v1.17.0
+        uses: reviewdog/action-trivy@c51bf26459dab6a2b5c34e7f43eeb475746f1a00 # v1.18.0
         with:
           github_token: ${{ github.token }}
           trivy_command: config
@@ -159,7 +159,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -169,7 +169,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: golangci-lint
-        uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
+        uses: step-security/action-golangci-lint@caa574f1777a15e8c7ca2a8887e59a81b64438eb # v2.10.2
         with:
           github_token: ${{ github.token }}
           golangci_lint_version: ${{ inputs.golangci_lint_version }}
@@ -196,7 +196,7 @@ jobs:
         workdir: ${{ fromJSON(inputs.golangci_workdirs) }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -206,7 +206,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: golangci-lint
-        uses: step-security/action-golangci-lint@096b936e7ef257fb5595a0461574bec4dd400fbf # v2.10.0
+        uses: step-security/action-golangci-lint@caa574f1777a15e8c7ca2a8887e59a81b64438eb # v2.10.2
         with:
           github_token: ${{ github.token }}
           golangci_lint_version: ${{ inputs.golangci_lint_version }}
@@ -222,7 +222,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -251,7 +251,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -261,7 +261,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: misspell
-        uses: step-security/action-misspell@85d31a4bcbf1c3d99e4f224c148330e45b5a63cf # v1.27.2
+        uses: step-security/action-misspell@95b9d3769e9fa54b818ba3a9d54672ff5c313dfe # v1.30.1
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -281,7 +281,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -291,7 +291,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: alex
-        uses: reviewdog/action-alex@a86fdb2da29e06d659cd3bd528095479a2c5c01e # v1.19.0
+        uses: reviewdog/action-alex@f39fd335ddb3b76d5595d5c452078903cf872e96 # v1.20.0
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -306,7 +306,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -316,7 +316,7 @@ jobs:
           # Read-only reviewdog job; don't persist the repo token past checkout (zizmor artipacked).
           persist-credentials: false
       - name: markdownlint
-        uses: step-security/action-markdownlint@3334baf7cc71c6d7fd284d955e1bf54a2b2ee31a # v0.28.0
+        uses: step-security/action-markdownlint@c91b7c102591cac31fa35dbb9dfd6ab31da5e4fa # v0.31.2
         with:
           github_token: ${{ github.token }}
           reporter: github-pr-review
@@ -330,7 +330,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -359,7 +359,7 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
@@ -387,7 +387,7 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: ${{ inputs.allowed-endpoints }}
